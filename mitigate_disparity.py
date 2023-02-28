@@ -582,7 +582,7 @@ def fit(data,csv=True):
     print('identified metrics')
     mlpe.create_lattice(desired_points=10000)
     print('created lattice')
-    mlpe.calulate_lattice_performance()
+    mlpe.calculate_lattice_performance()
     print('calculated lattice scores')
     if csv:
         mlpe.output_lattice()
