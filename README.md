@@ -8,12 +8,9 @@ Load in a single dataframe with optional definitions of demographic attributes a
   -Labels are penultimate column of dataframe
   
   Unless otherwise noted:
-  
       -Demographic attributes are pandas type Object (string)
       -Feature data is everything else
-      
       -Ensure there are no NaN values in feature data (replace with median, mean, etc.)
-      
       -NaN is fine in demographic categories.
       
   Training data has NaN predictions
