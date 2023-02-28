@@ -52,32 +52,40 @@ class MLPE:
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    def split_data(self,
-                   X_train, y_train,
-                   X_test, y_test,
-                   predictions,
-                   attributes=None, data_cols=None):
+    def prepare_data(self, data:pd.core.frame.DataFrame, demographic_attributes=None, data_cols=None):
 
-        X_train = pd.DataFrame(X_train)
-        X_test = pd.DataFrame(X_test)
+        """
+        Load in a single dataframe with optional definitions of demographic attributes and feature data
+            
+        -Predictions are last column of dataframe
+        -Labels are penultimate column of dataframe
+        
+        Unless otherwise noted:
+            -Demographic attributes are pandas type Object (string)
+            -Feature data is everything else
+            
+        Training data has NaN predictions
+        Test data has non NaN predictions
 
-        # if len(X_train.columns) != len(X_test.columns):
-        # raise Exception("Train and test sets must have the same number of columns")
+        """
+        
+        data = data.copy()
+        # predictions are the last column
+        self.predictions = data.pop(data.columns[-1])
+        # labels are the penultimate column
+        self.labels = data.pop(data.columns[-1])
 
-        if attributes is None:
-            attributes = X_train.dtypes[X_train.dtypes == 'O']
-            attributes = list(set(attributes.index))
-
+        if demographic_attributes is None:
+            demographic_attributes = data.dtypes[data.dtypes=='O']
+            demographic_attributes = list(set(demographic_attributes.index))
+           
         if data_cols is None:
-            data_cols = list(set(X_train.columns).symmetric_difference(set(attributes)))
-
-        self.X_train_attr = X_train.loc[:, attributes]
-        self.X_test_attr = X_test.loc[:, attributes]
-        self.X_train_data = X_train.loc[:, data_cols]
-        self.X_test_data = X_test.loc[:, data_cols]
-
-        self.y_test = y_test.reset_index(drop=True)
-        self.predictions = pd.Series(predictions)
+            data_cols = list(set(data.columns).symmetric_difference(set(demographic_attributes)))
+        
+        self.X_train_attr = data.loc[self.predictions.isna().values,demographic_attributes]
+        self.X_test_attr = data.loc[~self.predictions.isna().values,demographic_attributes]
+        self.X_train_data = data.loc[self.predictions.isna().values,data_cols]
+        self.X_test_data = data.loc[~self.predictions.isna().values,data_cols]
 
     def remove_outliers(self, thresh=.01):
         self.original_attribute_classes = self.identify_attribute_classes()
