@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.neighbors import KDTree
 from sklearn.preprocessing import StandardScaler
+from scipy.stats import wasserstein_distance
 from sklearn.metrics import confusion_matrix
 from scipy.stats import bootstrap
 from metric_learn import MMC
@@ -52,23 +53,8 @@ class MLPE:
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    def prepare_data(self, data:pd.core.frame.DataFrame, demographic_attributes=None, data_cols=None):
+    def prepare_data(self, data: pd.core.frame.DataFrame, demographic_attributes=None, data_cols=None):
 
-        """
-        Load in a single dataframe with optional definitions of demographic attributes and feature data
-            
-        -Predictions are last column of dataframe
-        -Labels are penultimate column of dataframe
-        
-        Unless otherwise noted:
-            -Demographic attributes are pandas type Object (string)
-            -Feature data is everything else
-            
-        Training data has NaN predictions
-        Test data has non NaN predictions
-
-        """
-        
         data = data.copy()
         # predictions are the last column
         self.predictions = data.pop(data.columns[-1])
@@ -76,16 +62,16 @@ class MLPE:
         self.labels = data.pop(data.columns[-1])
 
         if demographic_attributes is None:
-            demographic_attributes = data.dtypes[data.dtypes=='O']
+            demographic_attributes = data.dtypes[data.dtypes == 'O']
             demographic_attributes = list(set(demographic_attributes.index))
-           
+
         if data_cols is None:
             data_cols = list(set(data.columns).symmetric_difference(set(demographic_attributes)))
-        
-        self.X_train_attr = data.loc[self.predictions.isna().values,demographic_attributes]
-        self.X_test_attr = data.loc[~self.predictions.isna().values,demographic_attributes]
-        self.X_train_data = data.loc[self.predictions.isna().values,data_cols]
-        self.X_test_data = data.loc[~self.predictions.isna().values,data_cols]
+
+        self.X_train_attr = data.loc[self.predictions.isna().values, demographic_attributes]
+        self.X_test_attr = data.loc[~self.predictions.isna().values, demographic_attributes]
+        self.X_train_data = data.loc[self.predictions.isna().values, data_cols]
+        self.X_test_data = data.loc[~self.predictions.isna().values, data_cols]
 
     def remove_outliers(self, thresh=.01):
         self.original_attribute_classes = self.identify_attribute_classes()
@@ -481,7 +467,41 @@ class MLPE:
                 # saving confidence interval data for the specific lattice point
                 lattice_ci[chunk[i]] = [ci.low, ci.high]
 
-        self.lattice_confidence_scores = pd.DataFrame.from_dict(lattice_ci, orient='index', columns=['5th', '95th'])
+        self.lattice_confidence_scores = pd.DataFrame.from_dict(lattice_ci, orient='index', columns=['low_ci', 'high_ci'])
+
+    def compare_train_test_distributions(self, bootrap_size=100, confidence_level=.95):
+
+        distance_list = []
+        while len(distance_list) < boostrap_size:
+
+            # randomly choose a sample of test set size from the training set
+            train_samp = np.random.choice(self.X_train_data.index, len(self.X_test_data))
+
+            # calculate Wasserstein distance between distributions along each feature, add together for "Manhattan distance of Wasserstein distances"
+            dist = 0
+            for column in self.X_train_data.columns:
+                dist += wasserstein_distance(self.X_train_data.loc[train_samp, column].values,
+                                             self.X_train_data.loc[:, column].values)
+            distance_list.append(dist)
+
+        test_dist = 0
+        for column in self.X_train_data.columns:
+            test_dist += wasserstein_distance(self.X_test_data.loc[:, column].values,
+                                              self.X_train_data.loc[:, column].values)
+
+        ci = bootstrap((distance_list,), np.mean, confidence_level=confidence_level).confidence_interval
+
+        if test_dist < ci.low or test_dist > ci.high:
+            warnings.warn(
+                'feature distributions of train and test data differ significantly: epistemic uncertainty evaluation may not be accurate')
+
+        output = {
+            'test_distance': test_dist,
+            'low_percentile': ci.low,
+            'high_percentile': ci.high
+        }
+
+        return output
 
     def output_lattice(self, target='csv', path='', suffix=''):
         """
@@ -546,3 +566,5 @@ class MLPE:
         elif information_source == 'csv':
             lattice_confidence_scores = pd.read_csv(f'{path}lattice_structure{suffix}.csv')
             return lattice_confidence_scores.iloc[lattice_index]
+
+
