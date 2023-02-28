@@ -76,5 +76,5 @@ covid_df.loc[:, 'prediction'] = np.nan
 covid_df.loc[X_test.index, 'prediction'] = prediction
 
 
-covid_df.to_csv('MLPE_example_dataset.csv')
+covid_df.to_csv('MLPE_example_dataset.csv',index=False)
 
