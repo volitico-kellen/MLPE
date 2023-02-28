@@ -68,10 +68,10 @@ class MLPE:
         if data_cols is None:
             data_cols = list(set(data.columns).symmetric_difference(set(demographic_attributes)))
 
-        self.X_train_attr = data.loc[self.predictions.isna().values, demographic_attributes]
-        self.X_test_attr = data.loc[~self.predictions.isna().values, demographic_attributes]
-        self.X_train_data = data.loc[self.predictions.isna().values, data_cols]
-        self.X_test_data = data.loc[~self.predictions.isna().values, data_cols]
+        self.X_train_attr = data.loc[self.predictions.isna().values, demographic_attributes].reset_index(drop=True)
+        self.X_test_attr = data.loc[~self.predictions.isna().values, demographic_attributes].reset_index(drop=True)
+        self.X_train_data = data.loc[self.predictions.isna().values, data_cols].reset_index(drop=True)
+        self.X_test_data = data.loc[~self.predictions.isna().values, data_cols].reset_index(drop=True)
 
     def remove_outliers(self, thresh=.01):
         self.original_attribute_classes = self.identify_attribute_classes()
@@ -442,8 +442,6 @@ class MLPE:
         self.lows = lows
         self.highs = highs
 
-        return basis
-
     def calculate_lattice_performance(self, subset=1000, r=3, confidence_level=.95):
         lattice_ci = {}
         for chunk in self.chunks(self.lattice_points.index, subset):
@@ -469,10 +467,10 @@ class MLPE:
 
         self.lattice_confidence_scores = pd.DataFrame.from_dict(lattice_ci, orient='index', columns=['low_ci', 'high_ci'])
 
-    def compare_train_test_distributions(self, bootrap_size=100, confidence_level=.95):
+    def compare_train_test_distributions(self, bootstrap_size=100, confidence_level=.95):
 
         distance_list = []
-        while len(distance_list) < boostrap_size:
+        while len(distance_list) < bootstrap_size:
 
             # randomly choose a sample of test set size from the training set
             train_samp = np.random.choice(self.X_train_data.index, len(self.X_test_data))
@@ -566,5 +564,35 @@ class MLPE:
         elif information_source == 'csv':
             lattice_confidence_scores = pd.read_csv(f'{path}lattice_structure{suffix}.csv')
             return lattice_confidence_scores.iloc[lattice_index]
+
+def fit(data,csv=True):
+    mlpe = MLPE()
+    mlpe.prepare_data(data)
+    print('prepared_data')
+    mlpe.remove_outliers(thresh=.05)
+    print('removed outliers')
+    mlpe.select_balanced(3000,iters=4000)
+    print('selected balanced')
+    mlpe.find_pairs()
+    print('found pairs')
+    mlpe.project_metric_space(max_iter=5)
+    print('projected data')
+    mlpe.identify_performance_metric_indices()
+    print('identified metrics')
+    mlpe.create_lattice(desired_points=10000)
+    print('created lattice')
+    mlpe.calulate_lattice_performance()
+    print('calculated lattice scores')
+    if csv:
+        mlpe.output_lattice()
+        print('outputted lattice info')
+
+
+
+
+
+
+
+
 
 
