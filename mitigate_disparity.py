@@ -72,6 +72,7 @@ class MLPE:
         self.X_test_attr = data.loc[~self.predictions.isna().values, demographic_attributes].reset_index(drop=True)
         self.X_train_data = data.loc[self.predictions.isna().values, data_cols].reset_index(drop=True)
         self.X_test_data = data.loc[~self.predictions.isna().values, data_cols].reset_index(drop=True)
+        self.y_test = self.labels[~self.predictions.isna().values].reset_index(drop=True)
 
     def remove_outliers(self, thresh=.01):
         self.original_attribute_classes = self.identify_attribute_classes()
