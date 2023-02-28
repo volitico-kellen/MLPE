@@ -1,10 +1,10 @@
 # MLPE
 Metric Lattice for Performance Estimation
 
-Load in a single dataframe with optional definitions of demographic attributes and feature data:
+  Load in a single dataframe with optional definitions of demographic attributes and feature data:
 
-  -Predictions are last column of dataframe
-  -Labels are penultimate column of dataframe
+    -Predictions are last column of dataframe
+    -Labels are penultimate column of dataframe
   
   Unless otherwise noted:
   
