@@ -176,7 +176,8 @@ class MLPE:
 
         return X_unity_adj
 
-    def select_balanced(self, n_balanced_pairs=5000, d=3, select_balanced_iters=1000):
+    def select_balanced(self, n_balanced_pairs=5000, d=3, select_balanced_iters=1000,
+                        message='selecting balance subset from population'):
 
         n = n_balanced_pairs/(2*d)
 
@@ -199,7 +200,7 @@ class MLPE:
         imputed_scaling = self.generate_imputed_scaling()
         range_iters = range(select_balanced_iters)
 
-        print('\nselecting balanced subset of population')
+        print(f'\n{message}')
         for j in tqdm(range_iters):
 
             # Every interval, permute roots of unity to ensure valid optimization
@@ -328,7 +329,8 @@ class MLPE:
 
         diff_pairing_obj = MLPE()
         diff_pairing_obj.X_train_attr = difference_pairing.drop('reference_diff', axis=1)
-        diff_pairing_obj.select_balanced(n_balanced_pairs=self.n_balance * 18, select_balanced_iters=self.iters)
+        diff_pairing_obj.select_balanced(n_balanced_pairs=self.n_balance * 18, select_balanced_iters=self.iters,
+                                         message='selecting balanced set from all difference pairs')
 
         # balanced_diff_ind = original_diff_ind
         diff_ref_index = original_reference_ind[diff_pairing_obj.reference_selection]
@@ -443,7 +445,6 @@ class MLPE:
         upper_u = u
         lower_u = None
         for i in range(10000):
-            print(u, L.sum(), len(L))
             res = np.product(np.ceil(L / u))
             # if we have a better lower bound
             if res < desired_points_in_lattice:
@@ -576,6 +577,7 @@ class MLPE:
             L = np.array(pd.read_csv(f'{path}lattice_structure{suffix}.csv'))
 
         self.X_transform = np.array(records @ L.T)
+        return pd.DataFrame(self.X_transform)
 
 
     def identify_lattice_score(self, records, information_source='self', path='', suffix=''):
@@ -637,8 +639,8 @@ class MLPE:
             metric_learn_max_proj=100000,
             mmc_max_iter = 1000,
             performance_metric='sensitivity',
-            desired_points_in_lattice=10000,
-            r_multiple=1,
+            desired_points_in_lattice=5000,
+            r_multiple=1.3,
             path='',
             suffix=''):
         #mlpe = MLPE()
@@ -656,7 +658,6 @@ class MLPE:
                                   metric_learn_max_proj=metric_learn_max_proj)
         print('projected data')
         self.identify_performance_metric_indices(performance_metric=performance_metric)
-        print('identified metrics')
         self.compare_train_test_distributions()
         self.create_lattice(desired_points_in_lattice=desired_points_in_lattice)
         print('created lattice')
@@ -688,12 +689,11 @@ class MLPE:
         feedback_df['low'] = np.nan
         feedback_df['high'] = np.nan
         for key, value in self.ci_record_scores.items():
-            print(value)
             feedback_df.loc[key,'low'] = value['low_ci']
             feedback_df.loc[key,'high'] = value['high_ci']
             feedback_df.loc[key,'width'] = value['high_ci']-value['low_ci']
 
-        groups = list(itertools.combinations(feedback_df.columns[:-3], 2))
+        groups = list(itertools.combinations(feedback_df.columns[:-3], level))
         all_groupings = []
         for atts in groups:
             all_groupings.append(pd.DataFrame(feedback_df.groupby(list(atts))[['low','high','width']].mean()))
@@ -704,8 +704,8 @@ class MLPE:
         else:
             print('sort is by widest or lowest')
         disparity_df.columns = [f'demographic_{i + 1}' for i in range(level)] + ['low','high','width']
-        print(disparity_df)
         disparity_df.to_csv('disparity_df.csv')
+        return disparity_df
 
 
 
