@@ -424,6 +424,7 @@ class MLPE:
 
         # transforming test-set data points from the metric learning produced linear transformation
         X = self.mmc.transform(self.X_test_data)
+        print(self.X_test_data.columns)
 
         # creating a K-d Tree on the transformed test set data
         tree = KDTree(X, leaf_size=2)
@@ -441,7 +442,8 @@ class MLPE:
 
         upper_u = u
         lower_u = None
-        for i in range(1000):
+        for i in range(10000):
+            print(u, L.sum(), len(L))
             res = np.product(np.ceil(L / u))
             # if we have a better lower bound
             if res < desired_points_in_lattice:
@@ -619,7 +621,6 @@ class MLPE:
             ldf['i'] = np.array(np.clip(np.round((ldf['record'] - ldf['lows'] - ldf['offset']) / ldf['u']), 0, ldf['n'] - 1), dtype=int)
 
             lattice_index = int(np.dot(ldf['base_counts'], ldf['i']))
-            print(lattice_index)
 
             if information_source == 'self':
                 ci_record_scores[i] = self.lattice_confidence_scores.iloc[lattice_index]
@@ -632,11 +633,11 @@ class MLPE:
             train_and_test_data,
             csv=True,
             remove_outliers_thresh=0.01,
-            n_balanced_pairs=500,#5000,
+            n_balanced_pairs=5000,
             metric_learn_max_proj=100000,
-            mmc_max_iter = 5,#1000,
+            mmc_max_iter = 1000,
             performance_metric='sensitivity',
-            desired_points_in_lattice=1000,#10000,
+            desired_points_in_lattice=10000,
             r_multiple=1,
             path='',
             suffix=''):
@@ -646,7 +647,7 @@ class MLPE:
         print('prepared_data')
         self.remove_outliers(remove_outliers_thresh=remove_outliers_thresh)
         print('removed outliers')
-        self.select_balanced(n_balanced_pairs=n_balanced_pairs,select_balanced_iters=500)#5000
+        self.select_balanced(n_balanced_pairs=n_balanced_pairs, select_balanced_iters=5000)
         print('selected balanced pairs')
         self.find_pairs()
         print('found pairs')
@@ -654,7 +655,6 @@ class MLPE:
         self.project_metric_space(mmc_max_iter=mmc_max_iter,
                                   metric_learn_max_proj=metric_learn_max_proj)
         print('projected data')
-        print(self.mmc.components_)
         self.identify_performance_metric_indices(performance_metric=performance_metric)
         print('identified metrics')
         self.compare_train_test_distributions()
@@ -684,7 +684,28 @@ class MLPE:
                                     information_source=information_source,
                                     path=path,
                                     suffix=suffix)
-        print(self.ci_record_scores)
+        feedback_df = self.X_train_attr.copy()
+        feedback_df['low'] = np.nan
+        feedback_df['high'] = np.nan
+        for key, value in self.ci_record_scores.items():
+            print(value)
+            feedback_df.loc[key,'low'] = value['low_ci']
+            feedback_df.loc[key,'high'] = value['high_ci']
+            feedback_df.loc[key,'width'] = value['high_ci']-value['low_ci']
+
+        groups = list(itertools.combinations(feedback_df.columns[:-3], 2))
+        all_groupings = []
+        for atts in groups:
+            all_groupings.append(pd.DataFrame(feedback_df.groupby(list(atts))[['low','high','width']].mean()))
+        if sort_by=='widest':
+            disparity_df = pd.concat(all_groupings).sort_values(by='width', ascending=False).reset_index()
+        elif sort_by=='lowest':
+            disparity_df = pd.concat(all_groupings).sort_values(by='low').reset_index()
+        else:
+            print('sort is by widest or lowest')
+        disparity_df.columns = [f'demographic_{i + 1}' for i in range(level)] + ['low','high','width']
+        print(disparity_df)
+        disparity_df.to_csv('disparity_df.csv')
 
 
 
