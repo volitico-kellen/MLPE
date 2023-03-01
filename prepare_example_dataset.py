@@ -43,11 +43,18 @@ odf = pd.pivot_table(odf_unpivoted,
                      columns=['DESCRIPTION'],
                      aggfunc='mean'
                      )
+
+# removing features with over 90 percent NaNs
+keep_column = (odf.isna().sum()/len(odf))<.9
+columns = list(keep_column[keep_column].index)
+odf = odf[columns].copy()
+
 odf.fillna(value=odf.mean(), inplace=True)
 odf = odf.reset_index()
+odf.describe().to_csv('data_summary.csv')
 scaler = StandardScaler()
 data_columns = odf.columns[1:]
-odf = pd.concat([odf[['PATIENT']],pd.DataFrame(np.round(scaler.fit_transform(odf.iloc[:,1:]),6),columns=data_columns)], axis=1)
+odf = pd.concat([odf[['PATIENT']],pd.DataFrame(scaler.fit_transform(odf.iloc[:,1:]),columns=data_columns)], axis=1)
 
 # creating labels
 has_covid = set(conditions[conditions['DESCRIPTION'].isin(['COVID-19'])]['PATIENT'])
