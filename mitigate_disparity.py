@@ -60,6 +60,7 @@ class MLPE:
 
     def prepare_data(self, train_and_test_data: pd.core.frame.DataFrame, demographic_attributes=None, data_cols=None):
 
+
         data = train_and_test_data.copy()
         # predictions are the last column
         predictions = data.pop(data.columns[-1])
@@ -75,10 +76,14 @@ class MLPE:
 
         if data_cols is None:
             data_cols = list(set(data.columns).symmetric_difference(set(demographic_attributes)))
+
         self.X_train_attr = data.loc[predictions.isna().values, demographic_attributes].reset_index(drop=True)
         self.X_test_attr = data.loc[~predictions.isna().values, demographic_attributes].reset_index(drop=True)
-        self.X_train_data = data.loc[predictions.isna().values, data_cols].reset_index(drop=True)
-        self.X_test_data = data.loc[~predictions.isna().values, data_cols].reset_index(drop=True)
+
+        # adding epsilon to prevent packages from coercing into sparce matrix
+        epsilon = np.float_power(10, -6)
+        self.X_train_data = data.loc[predictions.isna().values, data_cols].reset_index(drop=True)+epsilon
+        self.X_test_data = data.loc[~predictions.isna().values, data_cols].reset_index(drop=True)+epsilon
         #self.y_test = self.labels[~self.predictions.isna().values].reset_index(drop=True)
 
     def remove_outliers(self, remove_outliers_thresh=.01):
@@ -388,6 +393,7 @@ class MLPE:
 
         mmc.fit(mmc_data, y)
         self.mmc = mmc
+        self.L = mmc.components_
 
     def identify_performance_metric_indices(self, performance_metric='sensitivity'):
 
@@ -501,15 +507,18 @@ class MLPE:
 
             # calculate Wasserstein distance between distributions along each feature, add together for "Manhattan distance of Wasserstein distances"
             dist = 0
+
+            X_train_transform = pd.DataFrame(self.mmc.transform(self.X_train_data),columns=self.X_train_data.columns)
+            X_test_transform = pd.DataFrame(self.mmc.transform(self.X_test_data),columns=self.X_test_data.columns)
             for column in self.X_train_data.columns:
-                dist += wasserstein_distance(self.X_train_data.loc[train_samp, column].values,
-                                             self.X_train_data.loc[:, column].values)
+                dist += wasserstein_distance(X_train_transform.loc[train_samp, column].values,
+                                             X_train_transform.loc[:, column].values)
             distance_list.append(dist)
 
         test_dist = 0
         for column in self.X_train_data.columns:
-            test_dist += wasserstein_distance(self.X_test_data.loc[:, column].values,
-                                              self.X_train_data.loc[:, column].values)
+            test_dist += wasserstein_distance(X_test_transform.loc[:, column].values,
+                                              X_train_transform.loc[:, column].values)
 
         ci = bootstrap((distance_list,), np.mean, confidence_level=confidence_level).confidence_interval
 
@@ -519,11 +528,11 @@ class MLPE:
 
         output = {
             'test_distance': test_dist,
-            'low_percentile': ci.low,
-            'high_percentile': ci.high
+            'low_CI_percentile': ci.low,
+            'high_CI_percentile': ci.high
         }
-
-        return output
+        print("earth mover's distance of the test set vs training set in metric space:")
+        print(output)
 
     def output_mmc_L(self, target = 'csv', path='',suffix=''):
         """
@@ -560,7 +569,7 @@ class MLPE:
     def transform_patient_data(self, records, information_source='self', path='', suffix=''):
 
         if information_source == 'self':
-            L = self.mmc.components_
+            L = self.L
         elif information_source == 'csv':
             L = np.array(pd.read_csv(f'{path}lattice_structure{suffix}.csv'))
 
@@ -623,37 +632,39 @@ class MLPE:
             train_and_test_data,
             csv=True,
             remove_outliers_thresh=0.01,
-            n_balanced_pairs=5000,
+            n_balanced_pairs=500,#5000,
             metric_learn_max_proj=100000,
-            mmc_max_iter = 1000,
+            mmc_max_iter = 5,#1000,
             performance_metric='sensitivity',
-            desired_points_in_lattice=10000,
+            desired_points_in_lattice=1000,#10000,
             r_multiple=1,
             path='',
             suffix=''):
-        mlpe = MLPE()
-        mlpe.prepare_data(train_and_test_data)
+        #mlpe = MLPE()
+        self.prepare_data(train_and_test_data)
 
         print('prepared_data')
-        mlpe.remove_outliers(remove_outliers_thresh=remove_outliers_thresh)
+        self.remove_outliers(remove_outliers_thresh=remove_outliers_thresh)
         print('removed outliers')
-        mlpe.select_balanced(n_balanced_pairs=n_balanced_pairs,select_balanced_iters=5000)
+        self.select_balanced(n_balanced_pairs=n_balanced_pairs,select_balanced_iters=500)#5000
         print('selected balanced pairs')
-        mlpe.find_pairs()
+        self.find_pairs()
         print('found pairs')
-        mlpe.standardize()
-        mlpe.project_metric_space(mmc_max_iter=mmc_max_iter,
+
+        self.project_metric_space(mmc_max_iter=mmc_max_iter,
                                   metric_learn_max_proj=metric_learn_max_proj)
         print('projected data')
-        mlpe.identify_performance_metric_indices(performance_metric=performance_metric)
+        print(self.mmc.components_)
+        self.identify_performance_metric_indices(performance_metric=performance_metric)
         print('identified metrics')
-        mlpe.create_lattice(desired_points_in_lattice=desired_points_in_lattice)
+        self.compare_train_test_distributions()
+        self.create_lattice(desired_points_in_lattice=desired_points_in_lattice)
         print('created lattice')
         mlpe.calculate_lattice_performance(r_multiple=r_multiple)
         print('calculated lattice scores')
         if csv:
-            mlpe.output_mmc_L(path=path,suffix=suffix)
-            mlpe.output_lattice(path=path,suffix=suffix)
+            self.output_mmc_L(path=path,suffix=suffix)
+            self.output_lattice(path=path,suffix=suffix)
             print('outputted mmc_L and lattice info')
 
     def transform(self, records, information_source='self', path='', suffix=''):
@@ -667,6 +678,14 @@ class MLPE:
                                     information_source=information_source,
                                     path=path,
                                     suffix=suffix)
+
+    def feedback(self, information_source='self', path='', suffix='', level=2, sort_by='widest'):
+        self.identify_lattice_score(self.X_train_data,
+                                    information_source=information_source,
+                                    path=path,
+                                    suffix=suffix)
+        print(self.ci_record_scores)
+
 
 
 
