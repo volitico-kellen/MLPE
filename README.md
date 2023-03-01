@@ -170,7 +170,7 @@ pair selection removes patient records from metric learning traning if they cont
 
 ## Lattice
 ### Lattice confidence intervals are all too wide:
-try increasing r_multiple parameter. This will include more datapoints per lattice point
+try adjusting r_multiple parameter and desired_points_in_lattice. Increasing r_multiple includes more datapoints per lattice point
 
 # Contact
 If you have a query regarding use of this tool, a bug to report, or would like to collaborate on an improved version of MLPE, please contact us at kellensandvik(at)gmail.com or jesseaviv(at)gmail.com
