@@ -1,6 +1,6 @@
 # MLPE (Metric Lattice for Performance Estimation)
 
- *MLPE takes a binary ML model for which classification thresholds have already been determined and provides clinicians with patient-specific model performance estimates.* 
+ *MLPE takes a binary ML model for which classification thresholds have already been determined and provides clinicians with patient-specific model performance estimates for use at prediction time.* 
 
 To use MPLE on an ML model, load in a single dataframe with train and test data used to build an ML model, with demographic attributes and feature data such that:
 
