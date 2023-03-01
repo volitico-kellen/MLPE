@@ -426,7 +426,6 @@ class MLPE:
 
         # transforming test-set data points from the metric learning produced linear transformation
         X = self.mmc.transform(self.X_test_data)
-        print(self.X_test_data.columns)
 
         # creating a K-d Tree on the transformed test set data
         tree = KDTree(X, leaf_size=2)
@@ -542,7 +541,7 @@ class MLPE:
         Outputs the L matrix which is used to transform data into the learned metric space
         """
         if target == 'csv':
-            pd.DataFrame(self.mmc.components_).to_csv(f'{path}mmc_L{suffix}.csv')
+            pd.DataFrame(self.mmc.components_).to_csv(f'{path}mmc_L{suffix}.csv',index=False)
         else:
             warnings.warn('We currently do not support any other output than csv')
             pass
@@ -560,9 +559,9 @@ class MLPE:
             ldf['lows'] = self.lows
             ldf['highs'] = self.highs
             ldf['u'] = self.u
-            ldf.to_csv(f'{path}lattice_structure{suffix}.csv')
+            ldf.to_csv(f'{path}lattice_structure{suffix}.csv',index=False)
 
-            self.lattice_confidence_scores.to_csv(f'{path}lattice_scores{suffix}.csv')
+            self.lattice_confidence_scores.to_csv(f'{path}lattice_scores{suffix}.csv',index=False)
 
         else:
             warnings.warn('We currently do not support any other output than csv')
@@ -574,7 +573,7 @@ class MLPE:
         if information_source == 'self':
             L = self.L
         elif information_source == 'csv':
-            L = np.array(pd.read_csv(f'{path}lattice_structure{suffix}.csv'))
+            L = np.array(pd.read_csv(f'{path}mmc_L{suffix}.csv'))
 
         self.X_transform = np.array(records @ L.T)
         return pd.DataFrame(self.X_transform)
@@ -588,7 +587,7 @@ class MLPE:
         """
 
         # enforces positive lattice widths
-        epsilon = np.float_power(10, -10)
+        epsilon = np.float_power(10, -6)
 
         if information_source == 'self':
             ldf = pd.DataFrame()
@@ -619,6 +618,7 @@ class MLPE:
         ci_record_scores = {}
         for i in range(n_records):
             ldf['record'] = self.X_transform[i, :]
+            ldf['record'] = np.array(records)[i, :]
             # identifying index of closest lattice point to record in each lattice point
             ldf['i'] = np.array(np.clip(np.round((ldf['record'] - ldf['lows'] - ldf['offset']) / ldf['u']), 0, ldf['n'] - 1), dtype=int)
 
@@ -669,6 +669,8 @@ class MLPE:
             self.output_lattice(path=path,suffix=suffix)
             print('outputted mmc_L and lattice info')
 
+        self.identify_lattice_score(self.lattice_points.iloc[[1,10,121,151,220,421]])
+
     def transform(self, records, information_source='self', path='', suffix=''):
         self.transform_patient_data(records,
                                     information_source=information_source,
@@ -687,25 +689,25 @@ class MLPE:
                                     path=path,
                                     suffix=suffix)
         feedback_df = self.X_train_attr.copy()
-        feedback_df['low'] = np.nan
-        feedback_df['high'] = np.nan
+        feedback_df['ci_low'] = np.nan
+        feedback_df['ci_high'] = np.nan
         for key, value in self.ci_record_scores.items():
-            feedback_df.loc[key,'low_ci'] = value['low_ci']
-            feedback_df.loc[key,'high_ci'] = value['high_ci']
-            feedback_df.loc[key,'width'] = value['high_ci']-value['low_ci']
+            feedback_df.loc[key,'ci_high'] = value['low_ci']
+            feedback_df.loc[key,'ci_high'] = value['high_ci']
+            feedback_df.loc[key,'ci_width'] = value['high_ci']-value['low_ci']
 
         groups = list(itertools.combinations(feedback_df.columns[:-3], level))
         all_groupings = []
         for atts in groups:
-            all_groupings.append(pd.DataFrame(feedback_df.groupby(list(atts))[['low','high','width']].mean()))
+            all_groupings.append(pd.DataFrame(feedback_df.groupby(list(atts))[['ci_low','ci_high','ci_width']].mean()))
         if sort_by=='widest':
-            disparity_df = pd.concat(all_groupings).sort_values(by='width', ascending=False).reset_index()
+            disparity_df = pd.concat(all_groupings).sort_values(by='ci_width', ascending=False).reset_index()
         elif sort_by=='lowest':
-            disparity_df = pd.concat(all_groupings).sort_values(by='low').reset_index()
+            disparity_df = pd.concat(all_groupings).sort_values(by='ci_low').reset_index()
         else:
             print('sort is by widest or lowest')
-        disparity_df.columns = [f'demographic_{i + 1}' for i in range(level)] + ['low','high','width']
-        disparity_df.to_csv('disparity_df.csv')
+        disparity_df.columns = [f'demographic_{i + 1}' for i in range(level)] + ['ci_low','ci_high','ci_width']
+        disparity_df.to_csv('disparity_df.csv',index=False)
         return disparity_df
 
 
