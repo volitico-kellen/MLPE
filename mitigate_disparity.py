@@ -10,6 +10,7 @@ import cmath
 import sympy
 import itertools
 import warnings
+from tqdm import tqdm
 
 
 class MLPE:
@@ -57,9 +58,9 @@ class MLPE:
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    def prepare_data(self, data: pd.core.frame.DataFrame, demographic_attributes=None, data_cols=None):
+    def prepare_data(self, train_and_test_data: pd.core.frame.DataFrame, demographic_attributes=None, data_cols=None):
 
-        data = data.copy()
+        data = train_and_test_data.copy()
         # predictions are the last column
         predictions = data.pop(data.columns[-1])
         labels = data.pop(data.columns[-1])
@@ -80,9 +81,9 @@ class MLPE:
         self.X_test_data = data.loc[~predictions.isna().values, data_cols].reset_index(drop=True)
         #self.y_test = self.labels[~self.predictions.isna().values].reset_index(drop=True)
 
-    def remove_outliers(self, thresh=.01):
+    def remove_outliers(self, remove_outliers_thresh=.01):
         self.original_attribute_classes = self.identify_attribute_classes()
-        n = len(self.X_train_attr) * thresh
+        n = len(self.X_train_attr) * remove_outliers_thresh
         remove_index = []
         for col in self.X_train_attr.columns:
             class_counts = self.X_train_attr[col].value_counts()
@@ -170,11 +171,11 @@ class MLPE:
 
         return X_unity_adj
 
-    def select_balanced(self, balanced_pairs=5000, d=3, iters=1000):
+    def select_balanced(self, n_balanced_pairs=5000, d=3, select_balanced_iters=1000):
 
-        n = balanced_pairs/(2*d)
+        n = n_balanced_pairs/(2*d)
 
-        self.iters = iters
+        self.iters = select_balanced_iters
         self.n_balance = n
         self.identify_attribute_classes()
         self.apply_unity_mapping()
@@ -191,8 +192,10 @@ class MLPE:
         best_obs = None
         costs = []
         imputed_scaling = self.generate_imputed_scaling()
+        range_iters = range(select_balanced_iters)
 
-        for j in range(iters):
+        print('\nselecting balanced subset of population')
+        for j in tqdm(range_iters):
 
             # Every interval, permute roots of unity to ensure valid optimization
             interval = 50
@@ -287,7 +290,10 @@ class MLPE:
 
         different_choices = np.array([])
         reference_index = np.array([])
-        for d, ind in max_distances.items():
+
+        print('\nfinding difference pairs')
+        max_distance_items = max_distances.items()
+        for d, ind in tqdm(max_distance_items):
             ind = np.array(ind).flatten()
             r1_ind = tree.query_radius(S.iloc[ind], r=d)
             r2_ind = tree.query_radius(S.iloc[ind], r=d + 2)
@@ -317,7 +323,7 @@ class MLPE:
 
         diff_pairing_obj = MLPE()
         diff_pairing_obj.X_train_attr = difference_pairing.drop('reference_diff', axis=1)
-        diff_pairing_obj.select_balanced(balanced_pairs=self.n_balance * 18, iters=self.iters)
+        diff_pairing_obj.select_balanced(n_balanced_pairs=self.n_balance * 18, select_balanced_iters=self.iters)
 
         # balanced_diff_ind = original_diff_ind
         diff_ref_index = original_reference_ind[diff_pairing_obj.reference_selection]
@@ -354,7 +360,12 @@ class MLPE:
         self.X_train_data = pd.DataFrame(scaler.fit_transform(self.X_train_data), columns=data_columns)
         self.X_test_data = pd.DataFrame(scaler.fit_transform(self.X_test_data), columns=data_columns)
 
-    def project_metric_space(self, mmc_max_iter=1000, conv_thresh=.0001, max_proj=100000, verbose=True, random_state=0):
+    def project_metric_space(self,
+                             mmc_max_iter=1000,
+                             conv_thresh=.0001,
+                             metric_learn_max_proj=100000,
+                             verbose=True,
+                             random_state=0):
 
         mmc_sim_data = np.array([np.array(self.X_train_data.loc[self.sim_pair_index[:, 0]], dtype=float),
                                  np.array(self.X_train_data.loc[self.sim_pair_index[:, 1]], dtype=float)])
@@ -371,9 +382,9 @@ class MLPE:
 
         mmc = MMC(max_iter=mmc_max_iter,
                   convergence_threshold=conv_thresh,
-                  max_proj=max_proj,
-                  verbose=True,
-                  random_state=0)
+                  max_proj=metric_learn_max_proj,
+                  verbose=verbose,
+                  random_state=random_state)
 
         mmc.fit(mmc_data, y)
         self.mmc = mmc
@@ -395,7 +406,7 @@ class MLPE:
         elif performance_metric in ('accuracy'):
             self.performance_test_pred = test_pred.index
 
-    def create_lattice(self, desired_points=10000):
+    def create_lattice(self, desired_points_in_lattice=10000):
         """
         Creates a high-dimentional lattice with approximatly the desired number of points.
 
@@ -420,17 +431,17 @@ class MLPE:
 
         # starting distance between points, u, is initiated at a point which assumes equal dimension sizes
         # this is an upper bound of u
-        u = L.sum() / np.power(desired_points, 1 / len(L))
+        u = L.sum() / np.power(desired_points_in_lattice, 1 / len(L))
 
         upper_u = u
         lower_u = None
         for i in range(1000):
             res = np.product(np.ceil(L / u))
             # if we have a better lower bound
-            if res < desired_points:
+            if res < desired_points_in_lattice:
                 upper_u = u
             # if we have exceeded points for the first time
-            if res > desired_points:
+            if res > desired_points_in_lattice:
                 lower_u = u
 
             # if we don't have an upper bound yet, just decrease u by 1
@@ -455,18 +466,18 @@ class MLPE:
         self.lows = lows
         self.highs = highs
 
-    def calculate_lattice_performance(self, subset=1000, r_multiple=1, confidence_level=.95):
+    def calculate_lattice_performance(self, subset=100, r_multiple=1, confidence_level=.95):
         lattice_ci = {}
         r = r_multiple*self.u
-        for chunk in self.chunks(self.lattice_points.index, subset):
-            print(chunk)
+        print('calculating test set performance across the lattice:')
+        chunk_list = list(self.chunks(self.lattice_points.index, subset))
+        for chunk in tqdm(chunk_list):
             # identifying the test-set points near the lattice point from the transformed metric space
             ind = self.tree.query_radius(self.lattice_points.loc[chunk], r=r)
 
             for i, neighbors in enumerate(ind):
                 # selecting datapoints that are relevent to model performance metric
                 neighbors = [x for x in neighbors if x in self.performance_test_pred]
-                print(neighbors)
                 # collecing performance information for the neighbors
                 neighbor_performance = (self.y_test.loc[neighbors] == self.predictions.loc[neighbors]).values * 1
                 # adding 0, 1 to ensure confidence intervals have heterogeneity
@@ -608,32 +619,55 @@ class MLPE:
 
         self.ci_record_scores = ci_record_scores
 
-def fit(data,csv=True):
-    mlpe = MLPE()
-    mlpe.prepare_data(data)
+    def fit(self,
+            train_and_test_data,
+            csv=True,
+            remove_outliers_thresh=0.01,
+            n_balanced_pairs=5000,
+            metric_learn_max_proj=100000,
+            mmc_max_iter = 1000,
+            performance_metric='sensitivity',
+            desired_points_in_lattice=10000,
+            r_multiple=1,
+            path='',
+            suffix=''):
+        mlpe = MLPE()
+        mlpe.prepare_data(train_and_test_data)
 
-    print('prepared_data')
-    mlpe.remove_outliers(thresh=.05)
-    print('removed outliers')
-    mlpe.select_balanced(3000,iters=500)
-    print('selected balanced')
-    mlpe.find_pairs()
-    print('found pairs')
-    mlpe.standardize()
-    mlpe.project_metric_space(mmc_max_iter=5)
-    print('projected data')
-    mlpe.identify_performance_metric_indices()
-    print('identified metrics')
-    mlpe.create_lattice(desired_points=1000)
-    print('created lattice')
-    mlpe.calculate_lattice_performance(r_multiple=1.75)
-    print('calculated lattice scores')
-    if csv:
-        mlpe.output_mmc_L()
-        mlpe.output_lattice()
-        print('outputted mmc_L and lattice info')
-    mlpe.identify_lattice_score(mlpe.X_train_data.iloc[:1000])
-    print(mlpe.ci_record_scores)
+        print('prepared_data')
+        mlpe.remove_outliers(remove_outliers_thresh=remove_outliers_thresh)
+        print('removed outliers')
+        mlpe.select_balanced(n_balanced_pairs=n_balanced_pairs,select_balanced_iters=5000)
+        print('selected balanced pairs')
+        mlpe.find_pairs()
+        print('found pairs')
+        mlpe.standardize()
+        mlpe.project_metric_space(mmc_max_iter=mmc_max_iter,
+                                  metric_learn_max_proj=metric_learn_max_proj)
+        print('projected data')
+        mlpe.identify_performance_metric_indices(performance_metric=performance_metric)
+        print('identified metrics')
+        mlpe.create_lattice(desired_points_in_lattice=desired_points_in_lattice)
+        print('created lattice')
+        mlpe.calculate_lattice_performance(r_multiple=r_multiple)
+        print('calculated lattice scores')
+        if csv:
+            mlpe.output_mmc_L(path=path,suffix=suffix)
+            mlpe.output_lattice(path=path,suffix=suffix)
+            print('outputted mmc_L and lattice info')
+
+    def transform(self, records, information_source='self', path='', suffix=''):
+        self.transform_patient_data(records,
+                                    information_source=information_source,
+                                    path=path,
+                                    suffix=suffix)
+
+    def predict(self, records, information_source='self', path='', suffix=''):
+        self.identify_lattice_score(records,
+                                    information_source=information_source,
+                                    path=path,
+                                    suffix=suffix)
+
 
 
 
