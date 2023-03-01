@@ -56,7 +56,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     r_multiple: float or int, default=1
         n-ball radius as a multiple of lattice point width
     
-    csv: boolean, default=True
+    csv: bool, default=True
         whether to output mmc_L, lattice_structure, and lattice_scores outputs as csvs into the current directory.
         'path' and 'suffix' parameters can additionally be used to state altered path and file names of these inputs.
         
@@ -96,6 +96,14 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     sort_by: {'widest','lowest'}, default='widest'
         how result DataFrame is sorted, decreasing by width of the CI or increasing by mean
         
+### measure_disparity()
+    
+    patient_info: pandas DataFrame
+        patient demographic attributes, predicted labels, and labels, formatted as explained above (same as train_and_test_data)
+        
+    low_confidence_scores: array-like of shape (n_samples,)
+        the 5th percentile outputs of MLPE predict() on the chosen set of patients
+        
   
 # Returns
 
@@ -128,6 +136,12 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     
     subgroup_summary: pandas DataFrame
         summary statistics of model training set demographic subgroup estimated performance
+        
+### measure_disparity()
+
+    class_summary: pandas DataFrame
+        summary statistic of estimated model performance for each demographic class, 
+        along with actual model performance for that subset of patients
         
 # Troubleshooting
 
