@@ -618,7 +618,6 @@ class MLPE:
         ci_record_scores = {}
         for i in range(n_records):
             ldf['record'] = self.X_transform[i, :]
-            ldf['record'] = np.array(records)[i, :]
             # identifying index of closest lattice point to record in each lattice point
             ldf['i'] = np.array(np.clip(np.round((ldf['record'] - ldf['lows'] - ldf['offset']) / ldf['u']), 0, ldf['n'] - 1), dtype=int)
 
@@ -668,8 +667,6 @@ class MLPE:
             self.output_mmc_L(path=path,suffix=suffix)
             self.output_lattice(path=path,suffix=suffix)
             print('outputted mmc_L and lattice info')
-
-        self.identify_lattice_score(self.lattice_points.iloc[[1,10,121,151,220,421]])
 
     def transform(self, records, information_source='self', path='', suffix=''):
         self.transform_patient_data(records,
