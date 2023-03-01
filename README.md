@@ -6,7 +6,8 @@ To use MPLE on an ML model, load in a single dataframe with train and test data 
 
       -Predicted labels are last column of dataframe
       -Labels are penultimate column of dataframe
-      -Demographic attributes are pandas type Object (string). Numerical demographic data should be binned.
+      -Demographic attributes are pandas type Object (string). Numerical demographic data should be binned. 
+       <25 bins or categories per deomgraphic attribute recommended
       -Feature data is everything else, and should be processed as it was to train the ML model
       -Ensure there are no NaN values in feature data (replace with choice of median, mean, etc.)
       -NaN is ok in demographic categories
@@ -15,18 +16,18 @@ To use MPLE on an ML model, load in a single dataframe with train and test data 
 
 **prepare_example_dataset.py pulls synthetic data from the Synthea COVID-19 dataset and will produce example data that fit these criteria.**
 
-## About the package
+# About the package
 
 The MLPE fit() function re-parameterizes data using metric learning on provided demographic information, and a lattice of model specificity or sensitivity across feature space is computed. It also alerts the researcher if the train/test split varies significantly in its distribution across the new metric feature space. 
 
-The MLPE predict() function returns a confidence interval on model specificity or sensitivity based on patient data.
+The MLPE predict() function returns a confidence interval on model specificity or sensitivity based on patient data. Can be used to evaluate ML model performance at prediction time.
 
-The MLPE transform() function projects patient data into the learned metric space, returning the new data features.
+The MLPE transform() function projects patient data into the learned metric space, returning the new data features. Can be used for clustering and examinations of latent/lurking variables and hidden stratification.
 
 The MLPE feedback() function provides the researcher with demographic intersections which may have especially poor model performance, in order to alert the researcher to patient subpopulations which may benefit from additional training data or revised classification thresholds. 
 
 
-## Parameters 
+# Parameters 
 
 Most-used parameters are listed below. The Synthea COVID-19 dataset was able to be run on default parameters using an Apple M1 chip on 8 GB of RAM. 
 
@@ -63,7 +64,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
 ### predict()
     
     patient_feature_data: pandas DataFrame
-        patient feature data only, processesed the same as train_and_test_data
+        patient feature data only, processesed the same as train_and_test_data (do not MLPE transform() prior to predict)
         
     information_source: {'self','csv'}, default='self' 
         source of fit() output. If 'self', takes in lattice and L matrix directly from fit(). 
@@ -81,8 +82,22 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         If 'csv', automatically reads from lattice_structure.csv and mmc_L.csv in the current directory. 
         'path' and 'suffix' parameters can additionally be used to state altered path and file names of these inputs.
         
+
+### feedback()
+      
+    information_source: {'self','csv'}, default='self' 
+        source of fit() output. If 'self', takes in lattice and L matrix directly from fit(). 
+        If 'csv', automatically reads from lattice_structure.csv, lattice_scores.csv, and mmc_L.csv in the current directory. 
+        'path' and 'suffix' parameters can additionally be used to state altered path and file names of these inputs.
+    
+    subgroup_level: int, default=2
+        number of demographic attributes to combine to form demographic subgroups
+    
+    sort_by: {'widest','lowest'}, default='widest'
+        how result DataFrame is sorted, decreasing by width of the CI or increasing by mean
+        
   
-## Returns
+# Returns
 
 ### fit()
     
@@ -109,5 +124,30 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         and examinations of latent/lurking variables and hidden stratification.
         
         
+### feedback()
+    
+    subgroup_summary: pandas DataFrame
+        summary statistics of model training set demographic subgroup estimated performance
+        
+# Troubleshooting
+
+## MMC
+### Metric learning eigenvalues do not converge:
+try re-running fit(). New data pairs will be chosen, which often solves the issue. This may take a few tries
+
+### Metric learning does not converge in the default number of iters (1000):
+the max iters can be increased with the parameter mmc_max_iter
+
+### Metric learning does not learn a new metric space:
+metric_learn_max_proj parameter must be increased
+      
+## Pair Selection
+### No or too few pairs are able to be selected:
+pair selection removes patient records from metric learning traning if they contain a demographic attribute represented by less than remove_outliers_thresh. Try decreasing remove_outliers_thresh or using wider bins for demographic data
+
+## Lattice
+### Lattice confidence intervals are all too wide:
+try increasing r_multiple parameter. This will include more datapoints per lattice point
+
 # Contact
-If you have a query regarding use of this tool or would like to collaborate on an improved version of MLPE, please contact us at kellensandvik(at)gmail.com or jesseaviv(at)gmail.com.
+If you have a query regarding use of this tool or would like to collaborate on an improved version of MLPE, please contact us at kellensandvik(at)gmail.com or jesseaviv(at)gmail.com
