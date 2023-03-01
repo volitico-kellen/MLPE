@@ -2,7 +2,7 @@
 
  *MLPE takes a binary ML model for which classification thresholds have already been determined and provides clinicians with patient-specific model performance estimates for use at prediction time.* 
 
-To use MPLE on an ML model, load in a single dataframe with train and test data used to build an ML model, with demographic attributes and feature data such that:
+To use MPLE on an ML model, load in a single dataframe with train and test data used to build the ML model, with demographic attributes and feature data such that:
 
       -Predicted labels are last column of dataframe
       -Labels are penultimate column of dataframe
@@ -43,7 +43,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         number of pairs (both positive and negative) to be used for metric learning
         
     metric_learn_max_proj: int, default=100000
-        maximum number of projections used in metric learning. If transform() returns feature data unaltered, 
+        maximum number of projections used in metric learning. If MLPE transform() returns feature data unaltered, 
         this parameter must be increased.
         
     performance_metric: {'sensitivity','specificity','precision','accuracy'}, default='sensitivity' 
@@ -56,7 +56,8 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         n-ball radius as a multiple of lattice point width
     
     csv: boolean, default=True
-        whether to output mmc_L and lattice_scores outputs as csvs into the current directory 
+        whether to output mmc_L, lattice_structure, and lattice_scores outputs as csvs into the current directory.
+        'path' and 'suffix' parameters can additionally be used to state altered path and file names of these inputs.
         
     
 ### predict()
@@ -67,8 +68,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     information_source: {'self','csv'}, default='self' 
         source of fit() output. If 'self', takes in lattice and L matrix directly from fit(). 
         If 'csv', automatically reads from lattice_structure.csv, lattice_scores.csv, and mmc_L.csv in the current directory. 
-        'path_structure', 'suffix_structure',  'path_scores', 'suffix_scores', 'path_L' and 'suffix_L' parameters can 
-        additionally be used to state the path and file name of these inputs.
+        'path' and 'suffix' parameters can additionally be used to state altered path and file names of these inputs.
         
    
 ### transform()
@@ -79,8 +79,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     information_source: {'self','csv'}, default='self' 
         source of fit() output. If 'self', takes in lattice and L matrix directly from fit(). 
         If 'csv', automatically reads from lattice_structure.csv and mmc_L.csv in the current directory. 
-        'path_lattice', 'suffix_lattice', 'path_L' and 'suffix_L' parameters can additionally be used to 
-        state the path and file name of these inputs.
+        'path' and 'suffix' parameters can additionally be used to state altered path and file names of these inputs.
         
   
 ## Returns
