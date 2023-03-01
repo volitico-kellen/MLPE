@@ -169,4 +169,4 @@ pair selection removes patient records from metric learning traning if they cont
 try increasing r_multiple parameter. This will include more datapoints per lattice point
 
 # Contact
-If you have a query regarding use of this tool or would like to collaborate on an improved version of MLPE, please contact us at kellensandvik(at)gmail.com or jesseaviv(at)gmail.com
+If you have a query regarding use of this tool, a bug to report, or would like to collaborate on an improved version of MLPE, please contact us at kellensandvik(at)gmail.com or jesseaviv(at)gmail.com
