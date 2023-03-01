@@ -79,7 +79,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         
     information_source: {'self','csv'}, default='self' 
         source of fit() output. If 'self', takes in lattice and L matrix directly from fit(). 
-        If 'csv', automatically reads from lattice_structure.csv and mmc_L.csv in the current directory. 
+        If 'csv', automatically reads from mmc_L.csv in the current directory. 
         'path' and 'suffix' parameters can additionally be used to state altered path and file names of these inputs.
         
 
