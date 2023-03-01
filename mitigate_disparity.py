@@ -623,6 +623,7 @@ class MLPE:
             ldf['i'] = np.array(np.clip(np.round((ldf['record'] - ldf['lows'] - ldf['offset']) / ldf['u']), 0, ldf['n'] - 1), dtype=int)
 
             lattice_index = int(np.dot(ldf['base_counts'], ldf['i']))
+            print(lattice_index)
 
             if information_source == 'self':
                 ci_record_scores[i] = self.lattice_confidence_scores.iloc[lattice_index]
@@ -689,8 +690,8 @@ class MLPE:
         feedback_df['low'] = np.nan
         feedback_df['high'] = np.nan
         for key, value in self.ci_record_scores.items():
-            feedback_df.loc[key,'low'] = value['low_ci']
-            feedback_df.loc[key,'high'] = value['high_ci']
+            feedback_df.loc[key,'low_ci'] = value['low_ci']
+            feedback_df.loc[key,'high_ci'] = value['high_ci']
             feedback_df.loc[key,'width'] = value['high_ci']-value['low_ci']
 
         groups = list(itertools.combinations(feedback_df.columns[:-3], level))
