@@ -660,7 +660,7 @@ class MLPE:
         self.compare_train_test_distributions()
         self.create_lattice(desired_points_in_lattice=desired_points_in_lattice)
         print('created lattice')
-        mlpe.calculate_lattice_performance(r_multiple=r_multiple)
+        self.calculate_lattice_performance(r_multiple=r_multiple)
         print('calculated lattice scores')
         if csv:
             self.output_mmc_L(path=path,suffix=suffix)
