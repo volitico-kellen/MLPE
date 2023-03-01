@@ -95,8 +95,8 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         If 'csv', automatically reads from lattice_structure.csv, lattice_scores.csv, and mmc_L.csv in the current directory. 
         'path' and 'suffix' parameters can additionally be used to state altered path and file names of these inputs.
     
-    subgroup_level: int, default=2
-        number of demographic attributes to combine to form demographic subgroups
+    level: int, default=2
+        the number of demographic categories to enumerate
     
     sort_by: {'widest','lowest'}, default='widest'
         how result DataFrame is sorted, decreasing by width of the CI or increasing by mean
