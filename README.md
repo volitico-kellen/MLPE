@@ -54,7 +54,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         number of lattice points across which to calculate performance_metric
     
     r_multiple: float or int, default=1
-        n-ball radius as a multiple of lattice point width
+        n-ball radius as a multiple of lattice point width, for calculation of model performance
     
     csv: bool, default=True
         whether to output mmc_L, lattice_structure, and lattice_scores outputs as csvs into the current directory.
