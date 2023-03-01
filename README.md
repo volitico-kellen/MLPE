@@ -7,7 +7,7 @@ To use MPLE on an ML model, load in a single dataframe with train and test data 
       -Predicted labels are last column of dataframe
       -Labels are penultimate column of dataframe
       -Demographic attributes are pandas type Object (string). Numerical demographic data should be binned. 
-       <25 bins or categories per deomgraphic attribute recommended
+        <25 bins or categories per deomgraphic attribute recommended
       -Feature data is everything else, and should be processed as it was to train the ML model
       -Ensure there are no NaN values in feature data (replace with choice of median, mean, etc.)
       -NaN is ok in demographic categories
