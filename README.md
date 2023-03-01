@@ -96,7 +96,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     sort_by: {'widest','lowest'}, default='widest'
         how result DataFrame is sorted, decreasing by width of the CI or increasing by mean
         
-### measure_disparity()
+### in measure_disparity.py: measure_disparity()
     
     patient_info: pandas DataFrame
         patient demographic attributes, predicted labels, and labels, formatted as explained above (same as train_and_test_data)
@@ -137,7 +137,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     subgroup_summary: pandas DataFrame
         summary statistics of model training set demographic subgroup estimated performance
         
-### measure_disparity()
+### in measure_disparity.py: measure_disparity()
 
     class_summary: pandas DataFrame
         summary statistic of estimated model performance for each demographic class, 
