@@ -19,6 +19,7 @@ class MLPE:
         self.X_train_data = None
         self.X_test_attr = None
         self.X_test_data = None
+        self.y_test = None
 
         # for calculating accuracy, precision, or recall
         self.performance_test_pred = None
@@ -43,6 +44,9 @@ class MLPE:
         self.highs = None
         lattice_confidence_scores = None
 
+        self.X_transform = None
+        self.ci_record_scores = None
+
     @staticmethod
     def pcomplex(theta):
         return complex(np.cos(theta), np.sin(theta))
@@ -57,9 +61,12 @@ class MLPE:
 
         data = data.copy()
         # predictions are the last column
-        self.predictions = data.pop(data.columns[-1])
+        predictions = data.pop(data.columns[-1])
+        labels = data.pop(data.columns[-1])
+        self.y_test = labels[predictions.dropna().index].reset_index(drop=True)
+        self.predictions = predictions.dropna().reset_index(drop=True)
         # labels are the penultimate column
-        self.labels = data.pop(data.columns[-1])
+
 
         if demographic_attributes is None:
             demographic_attributes = data.dtypes[data.dtypes == 'O']
@@ -67,12 +74,11 @@ class MLPE:
 
         if data_cols is None:
             data_cols = list(set(data.columns).symmetric_difference(set(demographic_attributes)))
-
-        self.X_train_attr = data.loc[self.predictions.isna().values, demographic_attributes].reset_index(drop=True)
-        self.X_test_attr = data.loc[~self.predictions.isna().values, demographic_attributes].reset_index(drop=True)
-        self.X_train_data = data.loc[self.predictions.isna().values, data_cols].reset_index(drop=True)
-        self.X_test_data = data.loc[~self.predictions.isna().values, data_cols].reset_index(drop=True)
-        self.y_test = self.labels[~self.predictions.isna().values].reset_index(drop=True)
+        self.X_train_attr = data.loc[predictions.isna().values, demographic_attributes].reset_index(drop=True)
+        self.X_test_attr = data.loc[~predictions.isna().values, demographic_attributes].reset_index(drop=True)
+        self.X_train_data = data.loc[predictions.isna().values, data_cols].reset_index(drop=True)
+        self.X_test_data = data.loc[~predictions.isna().values, data_cols].reset_index(drop=True)
+        #self.y_test = self.labels[~self.predictions.isna().values].reset_index(drop=True)
 
     def remove_outliers(self, thresh=.01):
         self.original_attribute_classes = self.identify_attribute_classes()
@@ -164,7 +170,10 @@ class MLPE:
 
         return X_unity_adj
 
-    def select_balanced(self, n, d=3, iters=1000):
+    def select_balanced(self, balanced_pairs=5000, d=3, iters=1000):
+
+        n = balanced_pairs/(2*d)
+
         self.iters = iters
         self.n_balance = n
         self.identify_attribute_classes()
@@ -247,11 +256,11 @@ class MLPE:
         other_ind = [i for i in all_inds if i not in self.reference_selection]
         other_selection = self.X_train_attr.loc[other_ind]
 
-        # creating tree
-        S = pd.concat([pd.get_dummies(self.X_train_attr.loc[self.reference_selection][col], prefix=col) \
-                       for col in self.X_train_attr.columns], axis=1)
-        T = pd.concat([pd.get_dummies(self.X_train_attr.loc[other_ind][col], prefix=col) \
-                       for col in self.X_train_attr.columns], axis=1)
+        # creating trees
+        all_dummies = pd.concat([pd.get_dummies(self.X_train_attr[col], prefix=col)
+                                 for col in self.X_train_attr.columns], axis=1)
+        S = all_dummies.loc[self.reference_selection]
+        T = all_dummies.loc[other_ind]
 
         tree = KDTree(T, leaf_size=2, metric='manhattan')
 
@@ -308,7 +317,7 @@ class MLPE:
 
         diff_pairing_obj = MLPE()
         diff_pairing_obj.X_train_attr = difference_pairing.drop('reference_diff', axis=1)
-        diff_pairing_obj.select_balanced(n=self.n_balance * 3, iters=self.iters)
+        diff_pairing_obj.select_balanced(balanced_pairs=self.n_balance * 18, iters=self.iters)
 
         # balanced_diff_ind = original_diff_ind
         diff_ref_index = original_reference_ind[diff_pairing_obj.reference_selection]
@@ -345,7 +354,7 @@ class MLPE:
         self.X_train_data = pd.DataFrame(scaler.fit_transform(self.X_train_data), columns=data_columns)
         self.X_test_data = pd.DataFrame(scaler.fit_transform(self.X_test_data), columns=data_columns)
 
-    def project_metric_space(self, max_iter=1000, conv_thresh=.0001, max_proj=100000, verbose=True, random_state=0):
+    def project_metric_space(self, mmc_max_iter=1000, conv_thresh=.0001, max_proj=100000, verbose=True, random_state=0):
 
         mmc_sim_data = np.array([np.array(self.X_train_data.loc[self.sim_pair_index[:, 0]], dtype=float),
                                  np.array(self.X_train_data.loc[self.sim_pair_index[:, 1]], dtype=float)])
@@ -360,30 +369,33 @@ class MLPE:
         y = np.concatenate([np.ones(len(self.sim_pair_index)),
                             -np.ones(len(self.diff_pair_index))])
 
-        mmc = MMC(max_iter=max_iter,
+        mmc = MMC(max_iter=mmc_max_iter,
                   convergence_threshold=conv_thresh,
                   max_proj=max_proj,
                   verbose=True,
                   random_state=0)
 
-        print('fitting', len(y), 'pairs')
         mmc.fit(mmc_data, y)
-        print('done!')
         self.mmc = mmc
 
-    def identify_performance_metric_indices(self, metric='recall'):
+    def identify_performance_metric_indices(self, performance_metric='sensitivity'):
+
+        """
+        creates the subset of labels/predictions for performance metric of choice
+        """
+
         test_pred = pd.concat([self.predictions, self.y_test], axis=1)
         test_pred.columns = ['predictions', 'y_test']
-        if metric in ('recall', 'sensitivity'):
+        if performance_metric in ('recall', 'sensitivity'):
             self.performance_test_pred = test_pred[test_pred['y_test'] == 1].index
-        elif metric in ('specificity'):
+        elif performance_metric in ('specificity'):
             self.performance_test_pred = test_pred[test_pred['y_test'] == 0].index
-        elif metric in ('precision'):
+        elif performance_metric in ('precision'):
             self.performance_test_pred = test_pred[test_pred['predictions'] == 1].index
-        elif metric in ('accuracy'):
+        elif performance_metric in ('accuracy'):
             self.performance_test_pred = test_pred.index
 
-    def create_lattice(self, desired_points=100000):
+    def create_lattice(self, desired_points=10000):
         """
         Creates a high-dimentional lattice with approximatly the desired number of points.
 
@@ -443,20 +455,20 @@ class MLPE:
         self.lows = lows
         self.highs = highs
 
-    def calculate_lattice_performance(self, subset=1000, r=3, confidence_level=.95):
+    def calculate_lattice_performance(self, subset=1000, r_multiple=1, confidence_level=.95):
         lattice_ci = {}
+        r = r_multiple*self.u
         for chunk in self.chunks(self.lattice_points.index, subset):
-
+            print(chunk)
             # identifying the test-set points near the lattice point from the transformed metric space
             ind = self.tree.query_radius(self.lattice_points.loc[chunk], r=r)
 
             for i, neighbors in enumerate(ind):
                 # selecting datapoints that are relevent to model performance metric
                 neighbors = [x for x in neighbors if x in self.performance_test_pred]
-
+                print(neighbors)
                 # collecing performance information for the neighbors
                 neighbor_performance = (self.y_test.loc[neighbors] == self.predictions.loc[neighbors]).values * 1
-
                 # adding 0, 1 to ensure confidence intervals have heterogeneity
                 ci_data = np.concatenate([neighbor_performance, np.array([0, 1])])
 
@@ -502,6 +514,16 @@ class MLPE:
 
         return output
 
+    def output_mmc_L(self, target = 'csv', path='',suffix=''):
+        """
+        Outputs the L matrix which is used to transform data into the learned metric space
+        """
+        if target == 'csv':
+            pd.DataFrame(self.mmc.components_).to_csv(f'{path}mmc_L{suffix}.csv')
+        else:
+            warnings.warn('We currently do not support any other output than csv')
+            pass
+
     def output_lattice(self, target='csv', path='', suffix=''):
         """
         Outputs lightweight file/object which can be used to reconstruct the lattice
@@ -523,12 +545,24 @@ class MLPE:
             warnings.warn('We currently do not support any other output than csv')
             pass
 
-    def identify_lattice_score(self, record, information_source='self', path='', suffix=''):
+
+    def transform_patient_data(self, records, information_source='self', path='', suffix=''):
+
+        if information_source == 'self':
+            L = self.mmc.components_
+        elif information_source == 'csv':
+            L = np.array(pd.read_csv(f'{path}lattice_structure{suffix}.csv'))
+
+        self.X_transform = np.array(records @ L.T)
+
+
+    def identify_lattice_score(self, records, information_source='self', path='', suffix=''):
         """
         Identifies the closest lattice point and outputs the confidence score.
         If information_source is 'self', class attributes are used
         If information_source is 'csv', outputted csv's are loaded in. Make sure to use appropriate path and suffix.
         """
+
         # enforces positive lattice widths
         epsilon = np.float_power(10, -10)
 
@@ -537,56 +571,71 @@ class MLPE:
             ldf['lows'] = self.lows
             ldf['highs'] = self.highs
             ldf['u'] = self.u
+
         elif information_source == 'csv':
             ldf = pd.read_csv(f'{path}lattice_structure{suffix}.csv')
+            lattice_confidence_scores = pd.read_csv(f'{path}lattice_structure{suffix}.csv')
         else:
             warnings.warn('We currently do not support any other information sourse')
             return None
 
-        ldf['record'] = record
         # calculating number of points per lattice dimension
         ldf['n'] = np.ceil((ldf['highs'] - ldf['lows'] + epsilon) / ldf['u'])
 
         # calcuating offset of first point in lattice dimension
         ldf['offset'] = (ldf['highs'] - ldf['lows'] + epsilon - ldf['u'] * (ldf['n'] - 1)) / 2
 
-        # identifying index of closest lattice point to record in each lattice point
-        ldf['i'] = np.array(
-            np.clip(np.round((ldf['record'] - ldf['lows'] - ldf['offset']) / ldf['u']), 0, ldf['n'] - 1), dtype=int)
-
         # generating structure to identify index of point in high dimensional lattice.
         # Follows convention of itertools.product.
         ldf['base_counts'] = np.concatenate([(ldf['n'][::-1]).cumprod()[::-1], np.array([1]), ])[1:]
 
-        lattice_index = np.dot(ldf['base_counts'], ldf['i'])
+        # iterating through every transformed patient record
+        self.transform_patient_data(records, information_source, path, suffix)
+        n_records = np.shape(self.X_transform)[0]
+        ci_record_scores = {}
+        for i in range(n_records):
+            ldf['record'] = self.X_transform[i, :]
+            # identifying index of closest lattice point to record in each lattice point
+            ldf['i'] = np.array(np.clip(np.round((ldf['record'] - ldf['lows'] - ldf['offset']) / ldf['u']), 0, ldf['n'] - 1), dtype=int)
 
-        if information_source == 'self':
-            return self.lattice_confidence_scores.iloc[lattice_index]
-        elif information_source == 'csv':
-            lattice_confidence_scores = pd.read_csv(f'{path}lattice_structure{suffix}.csv')
-            return lattice_confidence_scores.iloc[lattice_index]
+            lattice_index = int(np.dot(ldf['base_counts'], ldf['i']))
+            print(lattice_index)
+
+            if information_source == 'self':
+                ci_record_scores[i] = self.lattice_confidence_scores.iloc[lattice_index]
+            elif information_source == 'csv':
+                ci_record_scores[i] = lattice_confidence_scores.iloc[lattice_index]
+
+        self.ci_record_scores = ci_record_scores
 
 def fit(data,csv=True):
     mlpe = MLPE()
     mlpe.prepare_data(data)
+
     print('prepared_data')
     mlpe.remove_outliers(thresh=.05)
     print('removed outliers')
-    mlpe.select_balanced(3000,iters=4000)
+    mlpe.select_balanced(3000,iters=500)
     print('selected balanced')
     mlpe.find_pairs()
     print('found pairs')
-    mlpe.project_metric_space(max_iter=5)
+    mlpe.standardize()
+    mlpe.project_metric_space(mmc_max_iter=5)
     print('projected data')
     mlpe.identify_performance_metric_indices()
     print('identified metrics')
-    mlpe.create_lattice(desired_points=10000)
+    mlpe.create_lattice(desired_points=1000)
     print('created lattice')
-    mlpe.calculate_lattice_performance()
+    mlpe.calculate_lattice_performance(r_multiple=1.75)
     print('calculated lattice scores')
     if csv:
+        mlpe.output_mmc_L()
         mlpe.output_lattice()
-        print('outputted lattice info')
+        print('outputted mmc_L and lattice info')
+    mlpe.identify_lattice_score(mlpe.X_train_data.iloc[:1000])
+    print(mlpe.ci_record_scores)
+
+
 
 
 
