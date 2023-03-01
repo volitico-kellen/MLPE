@@ -2,7 +2,7 @@
 
  *MLPE takes a binary ML model for which classification thresholds have already been determined and provides clinicians with patient-specific model performance estimates for use at prediction time.* 
 
-To use MPLE on an ML model, load in a single dataframe with train and test data used to build the ML model, with demographic attributes and feature data such that:
+To use MLPE on an ML model, load in a single dataframe with train and test data used to build the ML model, with demographic attributes and feature data such that:
 
       -Predicted labels are last column of dataframe
       -Labels are penultimate column of dataframe
