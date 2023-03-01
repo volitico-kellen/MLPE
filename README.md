@@ -40,7 +40,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         for training metric learning, within each demogrpahic attribute, 
         records including categories representing less than remove_outliers_thresh of individuals are removed
         
-    balanced_pairs: int, default=5000
+    n_balanced_pairs: int, default=5000
         number of pairs (both positive and negative) to be used for metric learning
         
     metric_learn_max_proj: int, default=100000
