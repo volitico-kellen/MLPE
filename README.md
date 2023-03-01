@@ -16,6 +16,10 @@ To use MLPE on an ML model, load in a single dataframe with train and test data 
 
 **prepare_example_dataset.py pulls synthetic data from the Synthea COVID-19 dataset and will produce example data that fit these criteria.**
 
+## Example Use
+      >> mlpe = mititgate_disparity.MLPE()
+      >> MLPE.fit(data)
+
 # About the package
 
 The MLPE fit() function re-parameterizes data using metric learning on provided demographic information, and a lattice of model specificity or sensitivity across feature space is computed. It also alerts the researcher if the train/test split varies significantly in its distribution across the new metric feature space. 
@@ -51,7 +55,8 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
         ML model performance metric on which to build the lattice
         
     desired_points_in_lattice: int, default=100000
-        number of lattice points across which to calculate performance_metric
+        number of desired lattice points across which to calculate performance_metric. 
+        The true number of lattice points n will be desired_points_in_lattice/2 < n <= desired_points_in_lattice
     
     r_multiple: float or int, default=1
         n-ball radius as a multiple of lattice point width, for calculation of model performance
