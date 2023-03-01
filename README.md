@@ -109,6 +109,9 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     low_CI_scores: array-like of shape (n_samples,)
         the 5th percentile outputs of MLPE predict() on the chosen set of patients
         
+    level: int, default=1
+        the number of demographic categories to enumerate
+        
   
 # Returns
 
