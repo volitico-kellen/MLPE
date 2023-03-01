@@ -54,7 +54,7 @@ Most-used parameters are listed below. The Synthea COVID-19 dataset was able to 
     performance_metric: {'sensitivity','specificity','precision','accuracy'}, default='sensitivity' 
         ML model performance metric on which to build the lattice
         
-    desired_points_in_lattice: int, default=100000
+    desired_points_in_lattice: int, default=10000
         number of desired lattice points across which to calculate performance_metric. 
         The true number of lattice points n will be desired_points_in_lattice/2 < n <= desired_points_in_lattice
     
