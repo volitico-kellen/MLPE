@@ -22,11 +22,11 @@ def age_bracket(date):
     # 31536000 seconds in a year
     age = (time.time()-timestamp)/31536000
     if age < 18:
-        return 'Minor'
+        return 'Child'
     elif age < 65:
-        return 'Major'
+        return 'Adult'
     else:
-        return 'Grand'
+        return 'Senior'
 
 # creating patient dataset for demographic attributes
 pdf = patients[['Id','BIRTHDATE','COUNTY','RACE','ETHNICITY','GENDER']].copy()
@@ -45,7 +45,7 @@ odf = pd.pivot_table(odf_unpivoted,
                      )
 
 # removing features with over 90 percent NaNs
-keep_column = (odf.isna().sum()/len(odf))<.9
+keep_column = (odf.isna().sum()/len(odf)) < 0.9
 columns = list(keep_column[keep_column].index)
 odf = odf[columns].copy()
 
@@ -83,5 +83,5 @@ covid_df.loc[:, 'prediction'] = np.nan
 covid_df.loc[X_test.index, 'prediction'] = prediction
 
 
-covid_df.to_csv('MLPE_example_dataset.csv',index=False)
+covid_df.to_csv('MLPE_example_dataset.csv', index=False)
 
