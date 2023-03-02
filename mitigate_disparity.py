@@ -628,7 +628,6 @@ class MLPE:
             ldf['i'] = np.array(np.clip(np.round((ldf['record'] - ldf['lows'] - ldf['offset']) / ldf['u']), 0, ldf['n'] - 1), dtype=int)
 
             lattice_index = int(np.dot(ldf['base_counts'], ldf['i']))
-            print(lattice_index)
 
             if information_source == 'self':
                 ci_record_scores[i] = self.lattice_confidence_scores.iloc[lattice_index]
