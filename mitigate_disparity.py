@@ -43,7 +43,8 @@ class MLPE:
         self.u = None
         self.lows = None
         self.highs = None
-        lattice_confidence_scores = None
+        self.lattice_n = None
+        self.lattice_confidence_scores = None
 
         self.X_transform = None
         self.ci_record_scores = None
@@ -461,11 +462,13 @@ class MLPE:
 
         basis = []
 
+
         L = (highs - lows) + epsilon
         for i, n in enumerate(np.ceil(L / u)):
             offset = (L[i] - u * (n - 1)) / 2
             basis.append(list(np.arange(lows[i] + offset, highs[i] + epsilon, u)))
 
+        self.lattice_n = [len(m) for m in basis]
         lattice_points = pd.DataFrame(list(itertools.product(*basis)))
 
         self.tree = tree
@@ -541,7 +544,7 @@ class MLPE:
         Outputs the L matrix which is used to transform data into the learned metric space
         """
         if target == 'csv':
-            pd.DataFrame(self.mmc.components_).to_csv(f'{path}mmc_L{suffix}.csv',index=False)
+            pd.DataFrame(self.mmc.components_).to_csv(f'{path}mmc_L{suffix}.csv', index=False)
         else:
             warnings.warn('We currently do not support any other output than csv')
             pass
@@ -559,9 +562,10 @@ class MLPE:
             ldf['lows'] = self.lows
             ldf['highs'] = self.highs
             ldf['u'] = self.u
+            ldf['n'] = self.lattice_n
             ldf.to_csv(f'{path}lattice_structure{suffix}.csv',index=False)
 
-            self.lattice_confidence_scores.to_csv(f'{path}lattice_scores{suffix}.csv',index=False)
+            self.lattice_confidence_scores.to_csv(f'{path}lattice_scores{suffix}.csv', index=False)
 
         else:
             warnings.warn('We currently do not support any other output than csv')
@@ -589,21 +593,23 @@ class MLPE:
         # enforces positive lattice widths
         epsilon = np.float_power(10, -6)
 
+        output = records.copy()
+        output['ci_low'] = np.nan
+        output['ci_high'] = np.nan
+
         if information_source == 'self':
             ldf = pd.DataFrame()
             ldf['lows'] = self.lows
             ldf['highs'] = self.highs
             ldf['u'] = self.u
+            ldf['n'] = self.lattice_n
 
         elif information_source == 'csv':
             ldf = pd.read_csv(f'{path}lattice_structure{suffix}.csv')
-            lattice_confidence_scores = pd.read_csv(f'{path}lattice_structure{suffix}.csv')
+            lattice_confidence_scores = pd.read_csv(f'{path}lattice_scores{suffix}.csv')
         else:
             warnings.warn('We currently do not support any other information sourse')
             return None
-
-        # calculating number of points per lattice dimension
-        ldf['n'] = np.ceil((ldf['highs'] - ldf['lows'] + epsilon) / ldf['u'])
 
         # calcuating offset of first point in lattice dimension
         ldf['offset'] = (ldf['highs'] - ldf['lows'] + epsilon - ldf['u'] * (ldf['n'] - 1)) / 2
@@ -628,8 +634,9 @@ class MLPE:
                 ci_record_scores[i] = self.lattice_confidence_scores.iloc[lattice_index]
             elif information_source == 'csv':
                 ci_record_scores[i] = lattice_confidence_scores.iloc[lattice_index]
-
+        #output.loc[i,'ci_low'] =
         self.ci_record_scores = ci_record_scores
+        return ci_record_scores
 
     def fit(self,
             train_and_test_data,
