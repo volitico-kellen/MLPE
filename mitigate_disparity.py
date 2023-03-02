@@ -686,6 +686,10 @@ class MLPE:
                                     path=path,
                                     suffix=suffix)
 
+        predict_df = pd.DataFrame.from_dict(self.ci_record_scores, orient='index', columns=['low_ci', 'high_ci'])
+        records = records.copy().reset_index()
+        return pd.concat([records,predict_df],axis=1)
+
     def feedback(self, information_source='self', path='', suffix='', level=2, sort_by='widest'):
         self.identify_lattice_score(self.X_train_data,
                                     information_source=information_source,
