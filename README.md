@@ -16,7 +16,14 @@ To use MLPE on an ML model, load in a single dataframe with train and test data 
 
 **prepare_example_dataset.py pulls synthetic data from the Synthea COVID-19 dataset and will produce example data that fit these criteria.**
 
+Methods and motivation:
+https://drive.google.com/file/d/1WcJXqrhoPy9FAtU3KtaKqPlRug7AVsQj/view?usp=sharing
+
+Demo: https://youtu.be/_9Jkyv-FBuw
+
 ## Example Use
+Example use of the full method can be found in example_usage.ipynb.
+
       >> mlpe = mititgate_disparity.MLPE()
       >> MLPE.fit(data)
 
