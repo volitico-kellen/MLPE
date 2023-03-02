@@ -532,9 +532,9 @@ class MLPE:
                 'feature distributions of train and test data differ significantly: epistemic uncertainty evaluation may not be accurate')
 
         output = {
-            'test_distance': test_dist,
-            'low_CI_percentile': ci.low,
-            'high_CI_percentile': ci.high
+            'test_distance': np.round(test_dist,3),
+            'low_CI_percentile': np.round(ci.low,3),
+            'high_CI_percentile': np.round(ci.high,3)
         }
         print("earth mover's distance of the test set vs training set in metric space:")
         print(output)
